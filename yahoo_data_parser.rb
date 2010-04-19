@@ -1,5 +1,4 @@
 require 'csv'
-require 'curl-multi'
 require_relative 'stock_daily_price'
 
 module YahooDataParser

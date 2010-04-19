@@ -1,4 +1,3 @@
-require 'open-uri'
 require 'date'
 require 'logger'
 require_relative 'yahoo_data_parser'
