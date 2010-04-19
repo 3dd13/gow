@@ -1,10 +1,10 @@
 require 'open-uri'
 require 'date'
 require 'logger'
-require 'csv'
-require 'yahoo_data_parser'
+require_relative 'yahoo_data_parser'
 
 class YahooLoaderHelper
+    
   def initialize(options)
     @stocks = Array.new
     all_stock_numbers(options).each { |stock_no| 
@@ -17,17 +17,18 @@ class YahooLoaderHelper
   end
 
   def retrieve_all
-    stock_prices = nil
+    stock_prices = Array.new
+    thread_pool = Array.new
+
     @stocks.each { |stock|
       stock_no = stock[:stock_no]
 
-      last_day_stock_price = YahooDataParser::download_last_day_snapshot(stock)
+      last_day_stock_price = YahooDataParser::download_last_day_snapshot(stock[:last_day])
       if last_day_stock_price && last_day_stock_price.valid?
-        logger.debug "downloading #{stock_no}"
-        
-        stock_prices = YahooDataParser::download_history_stock(last_day_stock_price, stock)
+        stock_prices += YahooDataParser::download_history_stock(last_day_stock_price, stock[:history])
       end
     }
+
     stock_prices
   end
 
@@ -49,26 +50,27 @@ class YahooLoaderHelper
   end
 
   def logger
-    @logger ||= Logger.new(File.join(File.dirname(__FILE__), "../../log/data_loader.log"),3,5*1024*1024)
+    @logger ||= Logger.new(File.join(File.dirname(__FILE__), "logs/data_loader.log"),3,5*1024*1024)
   end
-  
+
 end
 
 p "Clean up stock_daily_prices: " + Time.now.to_s
 
 StockDailyPrice.delete_all
 
-stock_range = {:from => 1, :to => 1}
+stock_range = {:from => 1, :to => 10}
 
 loader = YahooLoaderHelper.new(stock_range)
 
 p "Start downloading: #{stock_range.inspect} " + Time.now.to_s
 
 all_stock_prices = loader.retrieve_all
-p all_stock_prices
+all_stock_prices.each_with_index {|price, index| price.id = index}
+p all_stock_prices.size
 p "Finish downloading: " + Time.now.to_s + "\nSaving to DB:"
 
 # fields = [:stock_no, :trade_datem, :open, :high, :low, :close, :volume, :adjusted]
-StockDailyPrice.import all_stock_prices
+# StockDailyPrice.import all_stock_prices
 p "After db save: " + Time.now.to_s
 

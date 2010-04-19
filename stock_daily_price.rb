@@ -1,5 +1,5 @@
 require 'rubygems'
-require 'activerecord'
+require 'active_record'
 require 'yaml'
 require 'ar-extensions'
 
@@ -10,12 +10,12 @@ class StockDailyPrice < ActiveRecord::Base
   def initialize(stock_values, stock_no = "")
     super()
     if stock_values.nil? || stock_values[2].to_s == 'N/A' || stock_values[4].to_s == 'N/A'
-      raise ArgumentError
+      nil
     else
       case stock_values.size
       when 7
         self.stock_no = stock_no
-        self.trade_date = stock_values[0]
+        self.trade_date = Date.parse(stock_values[0][0..9])
         self.open = stock_values[1]
         self.close = stock_values[2]
         self.high = stock_values[3]
@@ -32,6 +32,7 @@ class StockDailyPrice < ActiveRecord::Base
         self.volume = stock_values[8]      
         self.adjusted = false
       else
+        nil
       end
     end
   end 

@@ -1,2 +1,2 @@
 config/database.yml
-log/*.log
+logs/*.log

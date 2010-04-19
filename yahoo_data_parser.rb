@@ -1,18 +1,20 @@
 require 'csv'
-require 'stock_daily_price'
+require 'curl-multi'
+require_relative 'stock_daily_price'
 
 module YahooDataParser
-  def self.download_last_day_snapshot(stock)
+  def self.download_last_day_snapshot(last_day_url)
     last_day_value = nil
-    open_with_error_handled(stock[:last_day])  { |f|
+    
+    open_with_error_handled(last_day_url)  { |f|
       last_day_value = StockDailyPrice.new(CSV.parse_line(f.readline))
     }
     last_day_value
   end
 
-  def self.download_history_stock(last_day_stock_price, stock)
+  def self.download_history_stock(last_day_stock_price, history_url)
     stock_prices = Array.new
-    open_with_error_handled(stock[:history]) { |f|
+    open_with_error_handled(history_url) { |f|
       skip_header(f)
       
       stock_no = last_day_stock_price.stock_no
@@ -22,8 +24,6 @@ module YahooDataParser
       end
       stock_prices << first_history_stock_price
       f.readlines.each { |line|
-
-#p stock_no << CSV.parse_line(line)
         stock_prices << StockDailyPrice.new(CSV.parse_line(line), stock_no)
       }
     }
@@ -33,7 +33,7 @@ module YahooDataParser
   protected
   
   def self.history_include?(history_stock_price, last_day_stock_price)
-    true
+    history_stock_price.trade_date == last_day_stock_price.trade_date
   end
 
   def self.open_with_error_handled(url)
@@ -42,15 +42,11 @@ module YahooDataParser
         yield f
       }
     rescue OpenURI::HTTPError
-      error_logger.error "http connection error: #{url}"          
+ 
     end
   end
   
   def self.skip_header(f)
     f.readline
   end 
-  
-  def self.error_logger
-    @logger ||= Logger.new(File.join(File.dirname(__FILE__), "log/data_loader_error.log"), 3, 5*1024*1024)
-  end  
 end
