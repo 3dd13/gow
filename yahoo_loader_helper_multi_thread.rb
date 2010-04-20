@@ -41,8 +41,11 @@ class YahooLoaderHelper
   end
 
   def retrieve_last_day_response
-    get_csv(:last_day) { |response, stock|
-      stock[:last_day_response] = StockDailyPrice.new(CSV.parse_line(response.body))
+    get_csv(:last_day, false) { |response, stock|
+      stock_values = CSV.parse_line(response.body)
+      if stock_values && !stock_values.any?{|value| value.to_s == "N/A"}
+        stock[:last_day_response] = StockDailyPrice.new(stock_values)
+      end
     }
   end
 
@@ -50,7 +53,8 @@ class YahooLoaderHelper
     all_stock_prices = Array.new
     lock = Mutex.new
 
-    get_csv(:history) { |response, stock|
+    get_csv(:history, true) { |response, stock|
+      stock_no = stock[:stock_no]
       stock_prices = parse_all_stock_data(response, stock[:last_day_response])
 
       lock.synchronize{
@@ -61,12 +65,12 @@ class YahooLoaderHelper
     all_stock_prices
   end
 
-  def get_csv(url_key)
+  def get_csv(url_key, filter_last_day)
     hydra = Typhoeus::Hydra.new(:max_concurrency => 50)
     request_pool = Array.new
 
     @stocks.each { |stock|
-      if last_day_stock_price_valid?(stock)
+      if !filter_last_day || stock[:last_day_response]
         request = Typhoeus::Request.new(stock[url_key])
         request.on_complete do |response|
           yield(response,stock)
@@ -97,11 +101,6 @@ class YahooLoaderHelper
     stock_prices
   end
 
-  def last_day_stock_price_valid?(stock)
-    last_day_stock_price = stock[:last_day_response]
-    (last_day_stock_price && last_day_stock_price.valid?) || !last_day_stock_price
-  end
-
   def stock_price_in_history?(history_stock_price, last_day_stock_price)
     history_stock_price.trade_date != last_day_stock_price.trade_date
   end
@@ -111,18 +110,23 @@ p "Clean up stock_daily_prices: " + Time.now.to_s
 
 StockDailyPrice.delete_all
 
-stock_range = {:from => 1, :to => 1}
+stock_range = {:from => 1, :to => 100}
 
 loader = YahooLoaderHelper.new(stock_range)
 
 p "Start downloading: #{stock_range.inspect} " + Time.now.to_s
 
 all_stock_prices = loader.retrieve_all
-all_stock_prices.each_with_index {|price, index| price.id = index}
-p all_stock_prices.size
+all_stock_prices.each_with_index {|price, index| price.id = index + 1}
 p "Finish downloading: " + Time.now.to_s + "\nSaving to DB:"
 
-# fields = [:stock_no, :trade_datem, :open, :high, :low, :close, :volume, :adjusted]
-# StockDailyPrice.import all_stock_prices
+# fields = [:stock_no, :trade_date, :open, :high, :low, :close, :volume, :adjusted]
+StockDailyPrice.import all_stock_prices
 p "After db save: " + Time.now.to_s
+
+
+#"Clean up stock_daily_prices: 2010-04-20 14:09:22 +0800"
+#"Start downloading: {:from=>1, :to=>100} 2010-04-20 14:09:22 +0800"
+#"Finish downloading: 2010-04-20 14:13:32 +0800\nSaving to DB:"
+#"After db save: 2010-04-20 14:22:45 +0800"
 
