@@ -94,7 +94,7 @@ class YahooLoaderHelper
       stock_prices << last_day_stock_price
     end
 
-    f[1..f.size-1].each { |line|
+    f[1..-1].each { |line|
       stock_prices << StockDailyPrice.new(CSV.parse_line(line), stock_no)
     }
 

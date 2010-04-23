@@ -90,7 +90,7 @@ class YahooLoaderHelper
       stock_prices << last_day_stock_price
     end
     
-    f[1..f.size-1].each_with_index { |line, index|
+    f[1..-1].each_with_index { |line, index|
       stock_prices << StockDailyPrice.new(CSV.parse_line(line), stock_no, index_start + index)
     }
 
